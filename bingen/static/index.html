@@ -1,0 +1,577 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BinGenerator</title>
+<style>
+:root{
+  --bg:#f5f6f8; --panel:#fff; --panel2:#f0f2f5; --text:#1b1f24; --muted:#667085; --line:#dde1e6;
+  --accent:#0b6bcb; --accent-ink:#fff; --ok:#16794c; --warn:#b54708; --err:#c0262d; --chg:#fff4d6; --chg-line:#e8b400;
+  --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#111418; --panel:#1a1e24; --panel2:#222831; --text:#e6e8eb; --muted:#9aa3ad; --line:#2e3540;
+    --accent:#4c9bf0; --accent-ink:#0b0f14; --ok:#46c38b; --warn:#f0a050; --err:#ff6b6b; --chg:#3a3115; --chg-line:#c99a00; }
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--text);font:14px/1.45 system-ui,"Segoe UI",sans-serif;display:flex;flex-direction:column}
+header{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel)}
+header h1{font-size:16px;margin:0;font-weight:650}
+header .tc{margin-left:auto;color:var(--muted);font-size:12px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+header h1,header>span{white-space:nowrap}
+.app{flex:1;display:flex;min-height:0}
+aside{width:250px;border-right:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;min-height:0}
+aside .list{flex:1;overflow:auto;padding:6px}
+.proj{padding:8px 10px;border-radius:8px;cursor:pointer;margin-bottom:2px}
+.proj:hover{background:var(--panel2)}
+.proj.active{background:var(--accent);color:var(--accent-ink)}
+.proj small{display:block;opacity:.75;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+aside .foot{padding:10px;border-top:1px solid var(--line)}
+main{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}
+.tabs{display:flex;flex-wrap:wrap;align-items:flex-end;gap:4px;padding:8px 16px 0;border-bottom:1px solid var(--line);background:var(--panel)}
+.tab{white-space:nowrap;padding:8px 14px;border:1px solid transparent;border-bottom:none;border-radius:8px 8px 0 0;cursor:pointer;color:var(--muted)}
+.tab.active{background:var(--bg);border-color:var(--line);color:var(--text);margin-bottom:-1px}
+.tabs .spacer{flex:1}
+.view{flex:1;overflow:auto;padding:16px}
+.hidden{display:none!important}
+button,.btn{font:inherit;padding:6px 12px;border-radius:7px;border:1px solid var(--line);background:var(--panel);color:var(--text);cursor:pointer}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+button.big{padding:10px 22px;font-size:15px}
+button:disabled{opacity:.5;cursor:default}
+button.link{border:none;background:none;color:var(--accent);padding:2px 4px}
+button.danger:hover{border-color:var(--err);color:var(--err)}
+input,select,textarea{font:inherit;color:var(--text);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:5px 8px}
+input:focus,select:focus,textarea:focus{outline:2px solid color-mix(in srgb,var(--accent) 40%,transparent);border-color:var(--accent)}
+.mono{font-family:var(--mono);font-size:12.5px}
+.muted{color:var(--muted)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px}
+.card h3{margin:0 0 10px;font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.toolbar label{display:flex;gap:6px;align-items:center;color:var(--muted);font-size:13px}
+.groups{display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:14px;align-items:start}
+.groups .card{margin:0}
+.param{display:grid;grid-template-columns:1fr 190px 26px;gap:8px;align-items:center;padding:6px 6px;border-radius:6px;border-left:3px solid transparent}
+.param + .param{border-top:1px solid var(--line)}
+.param.changed{background:var(--chg);border-left-color:var(--chg-line)}
+.param.missing{opacity:.6}
+.param .lbl{min-width:0}
+.param .lbl b{font-weight:550}
+.param .lbl .sub{display:block;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.param .ctl{display:flex;gap:4px;align-items:center}
+.param .ctl input,.param .ctl select{width:100%;min-width:0}
+.param .unit{font-size:12px;color:var(--muted);white-space:nowrap}
+.reset{border:none;background:none;color:var(--muted);cursor:pointer;padding:0;font-size:15px}
+.reset:hover{color:var(--accent)}
+.switch{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.empty{padding:40px;text-align:center;color:var(--muted)}
+.log{background:#0d1117;color:#c9d1d9;font-family:var(--mono);font-size:12px;border-radius:8px;padding:10px;height:260px;overflow:auto;white-space:pre-wrap;word-break:break-all}
+.log .e{color:#ff7b72}.log .w{color:#d29922}.log .o{color:#3fb950;font-weight:600}
+.status{font-weight:600}
+.status.ok{color:var(--ok)}.status.failed{color:var(--err)}.status.running{color:var(--warn)}
+table{border-collapse:collapse;width:100%}
+th,td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{position:sticky;top:0;background:var(--panel2);font-size:12px;color:var(--muted);font-weight:600;z-index:1}
+tr.sel td{background:color-mix(in srgb,var(--accent) 10%,transparent)}
+tr.focus td{outline:1px solid var(--accent)}
+tbody tr{cursor:pointer}
+tbody tr:hover td{background:var(--panel2)}
+.vars{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:14px;height:100%}
+.vars .tablewrap{overflow:auto;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+.vars .side{overflow:auto}
+.code{font-family:var(--mono);font-size:12px;background:var(--panel2);border-radius:6px;padding:6px 0;overflow:auto;white-space:pre}
+.code div{padding:0 8px}
+.code .hl{background:var(--chg);border-left:3px solid var(--chg-line)}
+.code .ln{color:var(--muted);display:inline-block;width:38px;text-align:right;margin-right:8px;user-select:none}
+.field{display:grid;grid-template-columns:90px 1fr;gap:6px;align-items:center;margin-bottom:6px}
+.field label{font-size:12px;color:var(--muted)}
+.pill{display:inline-block;font-size:11px;padding:1px 6px;border-radius:10px;background:var(--panel2);color:var(--muted);border:1px solid var(--line)}
+.pill.t-int,.pill.t-float,.pill.t-hex{color:var(--accent)}
+.pill.t-string{color:var(--ok)}
+.pill.t-flag{color:var(--warn)}
+.drop{border:2px dashed var(--line);border-radius:10px;padding:26px;text-align:center;color:var(--muted);cursor:pointer}
+.drop.over{border-color:var(--accent);color:var(--accent)}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:10}
+.modal{background:var(--panel);border-radius:12px;padding:18px;width:min(560px,92vw);border:1px solid var(--line)}
+.modal h2{margin:0 0 12px;font-size:16px}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:8px 16px;border-radius:8px;z-index:20}
+.outputs td{font-size:13px}
+.chips{display:flex;flex-wrap:wrap;gap:4px}
+.chip{font-family:var(--mono);font-size:11px;background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:0 5px}
+@media (max-width:900px){ aside{width:160px} header>span.muted{display:none} .param{grid-template-columns:1fr 150px 22px} .vars{grid-template-columns:1fr} .groups{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+<header>
+  <h1>BinGenerator</h1><span class="muted">STM32 parameters → .bin</span>
+  <span class="tc" id="tcInfo">detecting toolchain…</span>
+</header>
+<div class="app">
+  <aside>
+    <div class="list" id="projList"></div>
+    <div class="foot"><button class="primary" style="width:100%" onclick="openImport()">+ Add project</button></div>
+  </aside>
+  <main>
+    <div class="tabs" id="tabs">
+      <div class="tab active" data-tab="build">⚙ Settings &amp; Build</div>
+      <div class="tab" data-tab="vars">☰ Choose variables</div>
+      <div class="tab" data-tab="outputs">⬇ Generated files</div>
+      <div class="spacer"></div>
+      <div class="row" style="padding-bottom:6px">
+        <button onclick="openImport(true)" id="btnUpdate" title="Load a newer zip / folder for this project, keeping your settings">⟳ Update source</button>
+        <button class="danger" onclick="removeProject()">Remove</button>
+      </div>
+    </div>
+
+    <!-- BUILD -->
+    <section class="view" id="view-build"></section>
+
+    <!-- VARIABLES -->
+    <section class="view hidden" id="view-vars">
+      <div class="vars">
+        <div style="display:flex;flex-direction:column;min-height:0;gap:10px">
+          <div class="toolbar" style="margin:0">
+            <input id="q" placeholder="Search name, value, comment, file…" style="flex:1;min-width:200px">
+            <select id="fFile"><option value="">All files</option></select>
+            <select id="fKind"><option value="">#define + variables</option><option value="define">#define only</option><option value="variable">variables only</option></select>
+            <label><input type="checkbox" id="fSel"> selected only</label>
+            <label><input type="checkbox" id="fHideExpr" checked> hide expressions</label>
+            <label><input type="checkbox" id="fHidePins" checked> hide CubeMX pins</label>
+          </div>
+          <div class="tablewrap" style="flex:1">
+            <table><thead><tr><th style="width:28px"></th><th>Name</th><th>Value</th><th>Type</th><th>File</th><th>Comment</th></tr></thead>
+              <tbody id="varBody"></tbody></table>
+          </div>
+          <div class="muted" id="varCount" style="font-size:12px"></div>
+        </div>
+        <div class="side" id="varSide"><div class="card empty">Click a row to see where it is in the code.<br><br>Tick the box to add it to your settings screen.</div></div>
+      </div>
+    </section>
+
+    <!-- OUTPUTS -->
+    <section class="view hidden" id="view-outputs"></section>
+  </main>
+</div>
+
+<script>
+const $ = (s, el=document) => el.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const S = { projects:[], slug:null, scan:null, byId:{}, profile:null, values:{}, tab:"build", focus:null, job:null, tc:null };
+
+async function api(path, opts={}){
+  const r = await fetch(path, opts);
+  const ct = r.headers.get("content-type")||"";
+  const data = ct.includes("json") ? await r.json() : await r.text();
+  if(!r.ok) throw new Error(data.error || data || r.statusText);
+  return data;
+}
+const putJSON = (p, b) => api(p, {method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify(b)});
+const postJSON = (p, b) => api(p, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(b||{})});
+function toast(msg, ms=2600){ const t=document.createElement("div"); t.className="toast"; t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(), ms); }
+function fail(e){ console.error(e); toast("⚠ " + e.message, 5000); }
+
+/* ---------------- projects ---------------- */
+async function loadProjects(selectSlug){
+  S.projects = await api("/api/projects");
+  const el = $("#projList");
+  el.innerHTML = S.projects.length ? "" : '<div class="muted" style="padding:10px;font-size:13px">No project yet.<br>Click “Add project”.</div>';
+  for(const p of S.projects){
+    const d = document.createElement("div");
+    d.className = "proj" + (p.slug===S.slug?" active":"");
+    d.innerHTML = `<b>${esc(p.name)}</b><small>${p.source_type==="zip"?"zip: ":"folder: "}${esc(p.source_path)}</small>${p.available?"":'<small style="color:var(--err)">source missing</small>'}`;
+    d.onclick = () => selectProject(p.slug);
+    el.appendChild(d);
+  }
+  const target = selectSlug || S.slug || (S.projects[0] && S.projects[0].slug) || localStorage.getItem("bg.slug");
+  if(target && S.projects.find(p=>p.slug===target)) await selectProject(target);
+  else render();
+}
+
+async function selectProject(slug){
+  S.slug = slug; try{ localStorage.setItem("bg.slug", slug); }catch(e){}
+  document.querySelectorAll(".proj").forEach((d,i)=>d.classList.toggle("active", S.projects[i].slug===slug));
+  $("#view-build").innerHTML = '<div class="empty">Scanning source code…</div>';
+  try{
+    const [scan, profile] = await Promise.all([api(`/api/projects/${slug}/scan`), api(`/api/projects/${slug}/profile`)]);
+    S.scan = scan; S.profile = profile; S.byId = Object.fromEntries(scan.params.map(p=>[p.id,p]));
+    S.values = {};
+    for(const sp of profile.params){
+      const lv = (profile.last_values||{})[sp.id];
+      S.values[sp.id] = lv ? {...lv} : defaultValue(sp.id);
+    }
+    const files = [...new Set(scan.params.map(p=>p.file))].sort();
+    $("#fFile").innerHTML = '<option value="">All files</option>' + files.map(f=>`<option>${esc(f)}</option>`).join("");
+    if(!profile.params.length) S.tab = "vars";
+  }catch(e){ fail(e); }
+  render();
+}
+
+function defaultValue(id){ const p = S.byId[id]; return p ? {value:p.value, enabled:p.enabled} : {value:"", enabled:true}; }
+
+/* ---------------- render dispatcher ---------------- */
+function render(){
+  document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("active", t.dataset.tab===S.tab));
+  for(const v of ["build","vars","outputs"]) $("#view-"+v).classList.toggle("hidden", v!==S.tab);
+  $("#tabs").style.visibility = S.slug ? "visible" : "hidden";
+  if(!S.slug){ $("#view-build").innerHTML = `<div class="empty"><h2>Welcome</h2><p>Add your STM32CubeIDE project (a <b>.zip</b> or a folder).<br>Then pick the variables you want to change, and build the .bin from here.</p><button class="primary big" onclick="openImport()">+ Add project</button></div>`; $("#view-build").classList.remove("hidden"); return; }
+  if(!S.scan) return;
+  if(S.tab==="build") renderBuild();
+  if(S.tab==="vars") renderVars();
+  if(S.tab==="outputs") renderOutputs();
+}
+document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{ S.tab=t.dataset.tab; render(); });
+
+/* ---------------- BUILD view ---------------- */
+function widgetFor(sp, p){
+  if(sp.widget && sp.widget!=="auto") return sp.widget;
+  if(!p) return "text";
+  if(p.type==="flag") return "toggle";
+  if(p.type==="int"||p.type==="float"||p.type==="hex") return "number";
+  if(p.type==="string") return "string";
+  return "text";
+}
+function parseOptions(str){
+  return String(str||"").split(/[,;\n]/).map(s=>s.trim()).filter(Boolean).map(s=>{
+    const i = s.indexOf("="); return i>0 ? {value:s.slice(0,i).trim(), label:s.slice(i+1).trim()} : {value:s, label:s};
+  });
+}
+const unquote = v => (/^".*"$/.test(v) ? v.slice(1,-1).replace(/\\"/g,'"').replace(/\\\\/g,"\\") : v);
+function numPart(v){ const m = String(v).trim().match(/^\(?\s*([-+]?(?:0[xX][0-9a-fA-F]+|(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?))[uUlLfF]*\s*\)?$/); return m ? m[1] : v; }
+
+function isChanged(id){
+  const p = S.byId[id], v = S.values[id]; if(!p||!v) return false;
+  const w = widgetFor(S.profile.params.find(x=>x.id===id)||{}, p);
+  let cur = String(v.value ?? "").trim(), orig = p.value;
+  if(w==="number"){ cur = numPart(cur); orig = numPart(orig); if(cur!=="" && !isNaN(+cur) && !isNaN(+orig)) return (+cur!==+orig) || v.enabled!==p.enabled; }
+  if(p.type==="string") { cur = unquote(cur); orig = unquote(orig); }
+  return cur!==orig || v.enabled!==p.enabled;
+}
+
+function renderBuild(){
+  const el = $("#view-build");
+  const prof = S.profile, info = S.scan.info;
+  if(!prof.params.length){
+    el.innerHTML = `<div class="empty"><h2>No settings chosen yet</h2><p>Go to <b>Choose variables</b>, find the values you change often and tick them.<br>They will show up here as a form.</p><button class="primary" onclick="S.tab='vars';render()">Choose variables →</button></div>`;
+    return;
+  }
+  const presets = Object.keys(prof.presets||{});
+  const b = prof.build||{};
+  const configs = info.configs.length ? info.configs : ["Debug"];
+  const defCfg = b.config || info.prebuilt_makefiles[0] || configs[0];
+  const groups = {};
+  for(const sp of prof.params){ (groups[sp.group||"General"] ||= []).push(sp); }
+  const nChanged = prof.params.filter(sp=>isChanged(sp.id)).length;
+
+  el.innerHTML = `
+  <div class="card">
+    <div class="toolbar" style="margin:0">
+      <label>Preset <select id="presetSel"><option value="">— choose —</option>${presets.map(n=>`<option ${n===S.preset?"selected":""}>${esc(n)}</option>`).join("")}</select></label>
+      <button onclick="savePreset()">Save as preset…</button>
+      <button class="danger" onclick="deletePreset()" ${presets.length?"":"disabled"}>Delete preset</button>
+      <button onclick="resetAll()">Reset all to code values</button>
+      <span class="muted" style="margin-left:auto">${nChanged} value(s) differ from the code</span>
+    </div>
+  </div>
+  <div class="groups" id="groups"></div>
+  <div class="card" style="margin-top:14px">
+    <h3>Build</h3>
+    <div class="toolbar">
+      <label>Name / label <input id="bLabel" value="${esc(b.label || S.preset || "")}" placeholder="e.g. WD_ID21" style="width:170px"></label>
+      <label>Configuration <select id="bCfg">${configs.map(c=>`<option ${c===defCfg?"selected":""}>${esc(c)}${info.prebuilt_makefiles.includes(c)?"":" (needs CubeIDE)"}</option>`).join("")}</select></label>
+      <label title="Fast uses the makefiles already in the project. CubeIDE regenerates them (slower, use it if you added/removed source files).">Method
+        <select id="bMode"><option value="auto">Auto</option><option value="make" ${b.mode==="make"?"selected":""}>Fast (project makefiles)</option><option value="headless" ${b.mode==="headless"?"selected":""}>CubeIDE regenerate (slow)</option></select></label>
+      <label><input type="checkbox" id="bClean"> clean build</label>
+      <button class="primary big" id="btnBuild" onclick="doBuild()" style="margin-left:auto">▶ Build .bin</button>
+    </div>
+    <div class="row" style="margin-bottom:6px"><span class="status" id="bStatus"></span><span class="muted" id="bElapsed"></span><span id="bResult"></span></div>
+    <div class="log" id="log">${S.job ? "" : '<span class="muted">Build output will appear here.</span>'}</div>
+  </div>`;
+  $("#presetSel").onchange = e => loadPreset(e.target.value);
+  const g = $("#groups");
+  for(const [name, list] of Object.entries(groups)){
+    const card = document.createElement("div"); card.className="card";
+    card.innerHTML = `<h3>${esc(name)}</h3>`;
+    for(const sp of list) card.appendChild(paramRow(sp));
+    g.appendChild(card);
+  }
+  if(S.job) replayJob();
+}
+
+function paramRow(sp){
+  const p = S.byId[sp.id];
+  const v = S.values[sp.id] || (S.values[sp.id] = defaultValue(sp.id));
+  const w = widgetFor(sp, p);
+  const row = document.createElement("div");
+  row.className = "param" + (isChanged(sp.id)?" changed":"") + (p?"":" missing");
+  const sub = p ? `${p.name} · ${p.file}:${p.line} · code value: ${p.enabled?p.value||"(defined)":"(disabled)"}` : `${sp.id} — not found in the code any more`;
+  row.innerHTML = `<div class="lbl"><b>${esc(sp.label||sp.name)}</b><span class="sub mono" title="${esc(sub + (p&&p.description?"\n"+p.description:""))}">${esc(sub)}</span></div><div class="ctl"></div><button class="reset" title="Reset to the value in the code">↺</button>`;
+  const ctl = $(".ctl", row);
+  const update = () => { row.classList.toggle("changed", isChanged(sp.id)); saveValuesSoon(); };
+  if(w==="toggle"){
+    ctl.innerHTML = `<label class="switch"><input type="checkbox" ${v.enabled?"checked":""}> <span>${v.enabled?"enabled":"disabled"}</span></label>${p&&p.type!=="flag"?`<input class="mono" value="${esc(v.value)}" ${v.enabled?"":"disabled"}>`:""}`;
+    const cb = $("input[type=checkbox]", ctl), tx = $("input.mono", ctl);
+    cb.onchange = () => { v.enabled = cb.checked; $("span", ctl).textContent = cb.checked?"enabled":"disabled"; if(tx) tx.disabled=!cb.checked; update(); };
+    if(tx) tx.oninput = () => { v.value = tx.value; update(); };
+  } else if(w==="checkbox"){
+    const on = ["1","true","TRUE","YES"].includes(String(v.value).trim());
+    ctl.innerHTML = `<label class="switch"><input type="checkbox" ${on?"checked":""}> <span>${on?"on":"off"}</span></label>`;
+    const cb = $("input", ctl);
+    const [tv, fv] = /true|false/i.test(p?.value||"") ? [p.value===p.value.toUpperCase()?"TRUE":"true", p.value===p.value.toUpperCase()?"FALSE":"false"] : ["1","0"];
+    cb.onchange = () => { v.value = cb.checked?tv:fv; $("span",ctl).textContent = cb.checked?"on":"off"; update(); };
+  } else if(w==="select"){
+    const opts = parseOptions(sp.options);
+    const cur = String(v.value).trim();
+    if(!opts.some(o=>o.value===cur)) opts.unshift({value:cur, label:cur+" (current)"});
+    ctl.innerHTML = `<select>${opts.map(o=>`<option value="${esc(o.value)}" ${o.value===cur?"selected":""}>${esc(o.label)}</option>`).join("")}</select>`;
+    $("select", ctl).onchange = e => { v.value = e.target.value; update(); };
+  } else {
+    const shown = w==="string" ? unquote(v.value) : (w==="number" ? numPart(v.value) : v.value);
+    ctl.innerHTML = `<input class="mono" ${w==="number"?'inputmode="decimal"':""} value="${esc(shown)}" ${sp.min!==undefined&&sp.min!==""?`data-min="${sp.min}"`:""} ${sp.max!==undefined&&sp.max!==""?`data-max="${sp.max}"`:""}>${sp.unit?`<span class="unit">${esc(sp.unit)}</span>`:""}`;
+    const inp = $("input", ctl);
+    inp.oninput = () => {
+      let ok = true, val = inp.value.trim();
+      if(w==="number"){ ok = /^[-+]?(0[xX][0-9a-fA-F]+|(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?)$/.test(val);
+        if(ok && inp.dataset.min && +val < +inp.dataset.min) ok=false;
+        if(ok && inp.dataset.max && +val > +inp.dataset.max) ok=false; }
+      inp.style.borderColor = ok ? "" : "var(--err)";
+      inp.title = ok ? "" : (w==="number" ? `Number${inp.dataset.min?" ≥ "+inp.dataset.min:""}${inp.dataset.max?" ≤ "+inp.dataset.max:""}` : "");
+      v.value = w==="string" ? val : val; v._invalid = !ok; update();
+    };
+    if(w==="string") v._string = true;
+  }
+  $(".reset", row).onclick = () => { S.values[sp.id] = defaultValue(sp.id); const n = paramRow(sp); row.replaceWith(n); saveValuesSoon(); refreshChangedCount(); };
+  return row;
+}
+function refreshChangedCount(){ if(S.tab==="build") renderBuild(); }
+
+let saveTimer=null;
+function saveValuesSoon(){ clearTimeout(saveTimer); saveTimer = setTimeout(()=>{ S.profile.last_values = cleanValues(); putJSON(`/api/projects/${S.slug}/profile`, S.profile).catch(fail); }, 700); }
+function cleanValues(){ const o={}; for(const sp of S.profile.params){ const v=S.values[sp.id]; if(v) o[sp.id]={value:v.value, enabled:v.enabled}; } return o; }
+
+function resetAll(){ for(const sp of S.profile.params) S.values[sp.id] = defaultValue(sp.id); S.preset=""; saveValuesSoon(); renderBuild(); }
+function loadPreset(name){
+  S.preset = name; if(!name) return;
+  const pr = S.profile.presets[name] || {};
+  for(const [id,v] of Object.entries(pr)) if(S.profile.params.some(sp=>sp.id===id)) S.values[id] = {...v};
+  S.profile.build = {...(S.profile.build||{}), label:name};
+  saveValuesSoon(); renderBuild(); toast(`Preset “${name}” loaded`);
+}
+async function savePreset(){
+  const name = prompt("Preset name (e.g. machine ID):", S.preset||""); if(!name) return;
+  S.profile.presets ||= {}; S.profile.presets[name] = cleanValues(); S.preset = name;
+  await putJSON(`/api/projects/${S.slug}/profile`, S.profile).catch(fail); renderBuild(); toast("Preset saved");
+}
+async function deletePreset(){
+  const name = $("#presetSel").value; if(!name) return toast("Choose a preset first");
+  if(!confirm(`Delete preset “${name}”?`)) return;
+  delete S.profile.presets[name]; S.preset=""; await putJSON(`/api/projects/${S.slug}/profile`, S.profile).catch(fail); renderBuild();
+}
+
+async function doBuild(){
+  const bad = S.profile.params.filter(sp=>S.values[sp.id]?._invalid);
+  if(bad.length) return toast("Fix invalid value: " + (bad[0].label||bad[0].name));
+  const body = { values: cleanValues(), label: $("#bLabel").value.trim(), config: $("#bCfg").value.replace(/ \(needs CubeIDE\)$/,""),
+                 mode: $("#bMode").value, clean: $("#bClean").checked };
+  S.profile.build = {label: body.label, config: body.config, mode: body.mode};
+  $("#btnBuild").disabled = true; $("#log").innerHTML = ""; $("#bResult").innerHTML = "";
+  try{
+    const r = await postJSON(`/api/projects/${S.slug}/build`, body);
+    S.job = {id:r.job, lines:[], next:0, state:"running", result:null};
+    pollJob();
+  }catch(e){ $("#btnBuild").disabled=false; fail(e); }
+}
+async function pollJob(){
+  const j = S.job; if(!j) return;
+  try{
+    const s = await api(`/api/jobs/${j.id}?since=${j.next}`);
+    j.lines.push(...s.lines); j.next = s.next; j.state = s.state; j.result = s.result; j.elapsed = s.elapsed;
+    if(S.tab==="build" && $("#log")) appendLog(s.lines), showJobStatus();
+    if(s.state==="running") setTimeout(pollJob, 600);
+    else { if($("#btnBuild")) $("#btnBuild").disabled=false; if(s.state==="ok") toast("✔ .bin generated"); }
+  }catch(e){ fail(e); }
+}
+function lineHtml(l){
+  const cls = /error|FAILED|!!/i.test(l) && !/0 errors/.test(l) ? "e" : /warning/i.test(l) ? "w" : /^OK  ->/.test(l) ? "o" : "";
+  return cls ? `<span class="${cls}">${esc(l)}</span>` : esc(l);
+}
+function appendLog(lines){
+  const el = $("#log"); if(!el || !lines.length) return;
+  const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 30;
+  el.insertAdjacentHTML("beforeend", lines.map(lineHtml).join("\n") + "\n");
+  if(atBottom) el.scrollTop = el.scrollHeight;
+}
+function replayJob(){ const el=$("#log"); el.innerHTML=""; appendLog(S.job.lines); showJobStatus(); if(S.job.state==="running") $("#btnBuild").disabled=true; }
+function showJobStatus(){
+  const j=S.job, st=$("#bStatus"); if(!st) return;
+  st.className = "status " + j.state; st.textContent = {running:"Building…", ok:"✔ Build OK", failed:"✖ Build failed"}[j.state];
+  $("#bElapsed").textContent = j.elapsed ? ` ${j.elapsed}s` : "";
+  if(j.result) $("#bResult").innerHTML = ` &nbsp; <a class="btn primary" style="text-decoration:none" href="/download/${S.slug}/${encodeURIComponent(j.result.name)}">⬇ Download ${esc(j.result.name)}</a> <span class="muted">${(j.result.size/1024).toFixed(1)} KB</span> <button onclick="openOutput()">Open folder</button>`;
+}
+
+/* ---------------- VARIABLES view ---------------- */
+["q","fFile","fKind","fSel","fHideExpr","fHidePins"].forEach(id => $("#"+id).addEventListener("input", ()=>renderVars()));
+const PIN_RE = /(_Pin|_GPIO_Port)$/;
+function selectedIds(){ return new Set(S.profile.params.map(p=>p.id)); }
+function renderVars(){
+  const q = $("#q").value.trim().toLowerCase(), ff = $("#fFile").value, fk = $("#fKind").value;
+  const onlySel = $("#fSel").checked, hideExpr = $("#fHideExpr").checked, hidePins = $("#fHidePins").checked;
+  const sel = selectedIds();
+  const rows = S.scan.params.filter(p => {
+    if(onlySel && !sel.has(p.id)) return false;
+    if(sel.has(p.id)) return !q || (p.name+" "+p.value+" "+p.file+" "+p.description).toLowerCase().includes(q);
+    if(ff && p.file!==ff) return false;
+    if(fk && p.kind!==fk) return false;
+    if(hideExpr && p.type==="expr") return false;
+    if(hidePins && PIN_RE.test(p.name)) return false;
+    if(q && !(p.name+" "+p.value+" "+p.file+" "+p.description).toLowerCase().includes(q)) return false;
+    return true;
+  });
+  // missing selected ones
+  const missing = S.profile.params.filter(sp=>!S.byId[sp.id]);
+  const shown = rows.slice(0, 1500);
+  $("#varBody").innerHTML = missing.map(sp=>`<tr class="sel"><td><input type="checkbox" checked data-id="${esc(sp.id)}"></td><td class="mono">${esc(sp.name)}</td><td colspan="4" style="color:var(--err)">not found in the code any more (${esc(sp.id)})</td></tr>`).join("") +
+    shown.map(p=>`<tr class="${sel.has(p.id)?"sel":""} ${S.focus===p.id?"focus":""}" data-id="${esc(p.id)}">
+      <td><input type="checkbox" ${sel.has(p.id)?"checked":""} data-id="${esc(p.id)}"></td>
+      <td class="mono">${p.enabled?"":'<span class="muted">// </span>'}${esc(p.name)}</td>
+      <td class="mono" style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(p.value)}">${esc(p.value||"—")}</td>
+      <td><span class="pill t-${p.type}">${p.kind==="define"?"#define":"var"} ${p.type}</span></td>
+      <td class="mono muted" style="white-space:nowrap">${esc(p.file.split("/").pop())}:${p.line}</td>
+      <td class="muted" style="font-size:12px;max-width:320px">${esc(p.description)}</td></tr>`).join("");
+  $("#varCount").textContent = `${rows.length} shown of ${S.scan.params.length} found · ${sel.size} selected` + (rows.length>shown.length?" (first 1500 displayed — refine the search)":"");
+  $("#varBody").onclick = e => {
+    const cb = e.target.closest("input[type=checkbox]");
+    if(cb){ toggleSelect(cb.dataset.id, cb.checked); return; }
+    const tr = e.target.closest("tr[data-id]"); if(tr){ S.focus = tr.dataset.id; renderVars(); }
+  };
+  renderSide();
+}
+function guessGroup(p){
+  const n = p.name.toUpperCase();
+  if(/VOLUME|LEVEL/.test(n)) return "Volume";
+  if(/TEMP/.test(n)) return "Temperature";
+  if(/^TIME_|_MS$|DELAY|TIMEOUT|INTERVAL/.test(n)) return "Timers";
+  if(/UV/.test(n)) return "UV";
+  if(/MQTT|TELEMETRY|SERVER|APN/.test(n)) return "Telemetry";
+  if(/COEFF|CALIB/.test(n)) return "Calibration";
+  if(/LOG_LEVEL/.test(n)) return "Logging";
+  return p.file.split("/").pop().replace(/\.[ch]$/,"");
+}
+function toggleSelect(id, on){
+  const p = S.byId[id];
+  if(on && !S.profile.params.some(x=>x.id===id)){
+    const sp = {id, name:p.name, label: humanize(p.name), group: guessGroup(p), widget:"auto", unit: guessUnit(p), options:""};
+    if(/LOG_LEVEL$/.test(p.name)){ sp.widget="select"; sp.options = S.scan.params.filter(q=>q.file===p.file && /_LOG_LEVEL_[A-Z]+$/.test(q.name)).map(q=>q.name).join(", "); if(!sp.options) sp.widget="auto"; }
+    S.profile.params.push(sp); S.values[id] = defaultValue(id); S.focus = id;
+  } else if(!on){
+    S.profile.params = S.profile.params.filter(x=>x.id!==id); delete S.values[id];
+  }
+  saveProfile(); renderVars();
+}
+function humanize(n){ return n.replace(/^[a-z]+(?=[A-Z])/, "").replace(/_/g," ").replace(/([a-z])([A-Z])/g,"$1 $2").replace(/\s+/g," ").trim().replace(/^./, c=>c.toUpperCase()); }
+function guessUnit(p){ const n=p.name.toUpperCase(), d=(p.description||"").toLowerCase();
+  if(/_MS$/.test(n)||/\(ms\)/.test(d)) return "ms"; if(/_MA$/.test(n)) return "mA"; if(/liters|\(l\)/.test(d)) return "L"; if(/deg c|°c|temperature/.test(d)) return "°C"; if(/seconds/.test(d)) return "s"; return ""; }
+let profTimer=null;
+function saveProfile(){ clearTimeout(profTimer); profTimer=setTimeout(()=>putJSON(`/api/projects/${S.slug}/profile`, S.profile).catch(fail), 400); }
+
+async function renderSide(){
+  const el = $("#varSide"); const id = S.focus; const p = S.byId[id];
+  if(!p){ el.innerHTML = '<div class="card empty">Click a row to see where it is in the code.<br><br>Tick the box to add it to your settings screen.</div>'; return; }
+  const sp = S.profile.params.find(x=>x.id===id);
+  el.innerHTML = `<div class="card"><h3>${esc(p.name)}</h3>
+    <div class="muted mono" style="font-size:12px;margin-bottom:6px">${esc(p.file)}:${p.line} · ${p.kind} · ${p.type}${p.ctype?" · "+esc(p.ctype):""}</div>
+    ${p.description?`<div style="margin-bottom:8px">${esc(p.description)}</div>`:""}
+    <div class="code" id="codeCtx">loading…</div></div>
+    <div class="card">${sp ? `<h3>How it appears in Settings</h3>
+      <div class="field"><label>Label</label><input id="eLabel" value="${esc(sp.label)}"></div>
+      <div class="field"><label>Group</label><input id="eGroup" value="${esc(sp.group)}" list="groupList"><datalist id="groupList">${[...new Set(S.profile.params.map(x=>x.group))].map(g=>`<option>${esc(g)}</option>`).join("")}</datalist></div>
+      <div class="field"><label>Control</label><select id="eWidget">${["auto","number","text","string","checkbox","select","toggle"].map(w=>`<option ${sp.widget===w?"selected":""} value="${w}">${{auto:"auto",number:"number",text:"text (raw C)",string:'string ("…")',checkbox:"checkbox (1/0)",select:"dropdown list",toggle:"enable/disable #define"}[w]}</option>`).join("")}</select></div>
+      <div class="field"><label>Unit</label><input id="eUnit" value="${esc(sp.unit||"")}" placeholder="ms, L, °C…"></div>
+      <div class="field"><label>Min / Max</label><div class="row"><input id="eMin" value="${esc(sp.min??"")}" style="width:90px"><input id="eMax" value="${esc(sp.max??"")}" style="width:90px"></div></div>
+      <div class="field"><label>Options</label><textarea id="eOpts" rows="2" placeholder="for dropdown: 1=On, 0=Off  or  LOG_LEVEL_INFO, LOG_LEVEL_DEBUG">${esc(sp.options||"")}</textarea></div>
+      <div class="row" style="justify-content:space-between"><button class="danger" onclick="toggleSelect('${esc(id)}', false)">Remove from settings</button><button onclick="moveParam('${esc(id)}',-1)">↑</button><button onclick="moveParam('${esc(id)}',1)">↓</button></div>`
+      : `<button class="primary" onclick="toggleSelect('${esc(id)}', true)">+ Add to settings</button>`}</div>`;
+  if(sp){
+    const bind = (sel, key) => $(sel).addEventListener("input", e => { sp[key] = e.target.value; saveProfile(); });
+    bind("#eLabel","label"); bind("#eGroup","group"); bind("#eWidget","widget"); bind("#eUnit","unit"); bind("#eMin","min"); bind("#eMax","max"); bind("#eOpts","options");
+  }
+  try{
+    const c = await api(`/api/projects/${S.slug}/file?path=${encodeURIComponent(p.file)}&line=${p.line}`);
+    if(S.focus!==id) return;
+    $("#codeCtx").innerHTML = c.lines.map((l,i)=>`<div class="${c.start+i===c.line?"hl":""}"><span class="ln">${c.start+i}</span>${esc(l)}</div>`).join("");
+  }catch(e){ $("#codeCtx").textContent = e.message; }
+}
+function moveParam(id, d){
+  const a = S.profile.params, i = a.findIndex(x=>x.id===id), j = i+d; if(j<0||j>=a.length) return;
+  [a[i],a[j]]=[a[j],a[i]]; saveProfile(); toast("Moved");
+}
+
+/* ---------------- OUTPUTS ---------------- */
+async function renderOutputs(){
+  const el = $("#view-outputs"); el.innerHTML = '<div class="empty">Loading…</div>';
+  try{
+    const list = await api(`/api/projects/${S.slug}/outputs`);
+    el.innerHTML = `<div class="toolbar"><button onclick="openOutput()">📂 Open output folder</button><span class="muted">Each .bin has a .json next to it listing the values used.</span></div>` +
+      (list.length ? `<div class="card" style="padding:0"><table class="outputs"><thead><tr><th>File</th><th>Built</th><th>Size</th><th>Changed vs code</th><th></th></tr></thead><tbody>` +
+      list.map(o=>`<tr><td class="mono">${esc(o.name)}</td><td style="white-space:nowrap">${esc(o.built_at)}</td><td>${(o.size/1024).toFixed(1)} KB</td>
+        <td><div class="chips">${Object.entries(o.changes||{}).map(([k,v])=>`<span class="chip" title="${esc(v.from)} → ${esc(v.to)}">${esc(k)}=${esc(v.to)}</span>`).join("") || '<span class="muted">none</span>'}</div></td>
+        <td style="white-space:nowrap"><a class="btn" style="text-decoration:none" href="/download/${S.slug}/${encodeURIComponent(o.name)}">⬇</a> <button class="danger" onclick="delOutput('${esc(o.name)}')">✕</button></td></tr>`).join("") + "</tbody></table></div>"
+      : '<div class="empty">No .bin generated yet.</div>');
+  }catch(e){ fail(e); }
+}
+async function delOutput(name){ if(!confirm("Delete "+name+"?")) return; await postJSON(`/api/projects/${S.slug}/delete-output`, {name}).catch(fail); renderOutputs(); }
+function openOutput(){ postJSON(`/api/projects/${S.slug}/open-output`).catch(fail); }
+
+/* ---------------- import ---------------- */
+function openImport(update=false){
+  if(update && !S.slug) return;
+  const p = update ? S.projects.find(x=>x.slug===S.slug) : null;
+  const bg = document.createElement("div"); bg.className="modal-bg";
+  bg.innerHTML = `<div class="modal"><h2>${update?"Update source of “"+esc(p.name)+"”":"Add an STM32CubeIDE project"}</h2>
+    ${update?'<p class="muted" style="margin-top:0">Your chosen variables, presets and values are kept. Variables that no longer exist will be flagged.</p>':""}
+    <div class="drop" id="drop">Drop a <b>.zip</b> of the project here<br>or click to choose a file<input type="file" id="zipIn" accept=".zip" class="hidden"></div>
+    <div style="text-align:center;margin:12px 0" class="muted">— or use a folder on this PC (always reads the latest code) —</div>
+    <div class="row"><input id="folderIn" placeholder="C:\\path\\to\\project" style="flex:1" value="${update&&p.source_type==="folder"?esc(p.source_path):""}"><button class="primary" id="folderBtn">Use folder</button></div>
+    <div class="row" style="justify-content:flex-end;margin-top:16px"><span id="impStatus" class="muted" style="margin-right:auto"></span><button id="impClose">Close</button></div></div>`;
+  document.body.appendChild(bg);
+  const close = () => bg.remove();
+  $("#impClose", bg).onclick = close;
+  const drop = $("#drop", bg), inp = $("#zipIn", bg);
+  drop.onclick = () => inp.click();
+  drop.ondragover = e => { e.preventDefault(); drop.classList.add("over"); };
+  drop.ondragleave = () => drop.classList.remove("over");
+  drop.ondrop = e => { e.preventDefault(); drop.classList.remove("over"); if(e.dataTransfer.files[0]) send(e.dataTransfer.files[0]); };
+  inp.onchange = () => inp.files[0] && send(inp.files[0]);
+  async function send(file){
+    $("#impStatus", bg).textContent = `Uploading ${file.name} (${(file.size/1048576).toFixed(1)} MB)…`;
+    try{
+      const r = await api(`/api/import/zip?filename=${encodeURIComponent(file.name)}${update?"&slug="+encodeURIComponent(S.slug):""}`, {method:"POST", body:file});
+      close(); toast("Project loaded: " + r.name); await loadProjects(r.slug);
+    }catch(e){ $("#impStatus", bg).textContent = "⚠ " + e.message; }
+  }
+  $("#folderBtn", bg).onclick = async () => {
+    try{
+      const r = await postJSON("/api/import/folder", {path: $("#folderIn", bg).value, slug: update ? S.slug : null});
+      close(); toast("Project loaded: " + r.name); await loadProjects(r.slug);
+    }catch(e){ $("#impStatus", bg).textContent = "⚠ " + e.message; }
+  };
+}
+async function removeProject(){
+  const p = S.projects.find(x=>x.slug===S.slug); if(!p) return;
+  if(!confirm(`Remove “${p.name}” from BinGenerator?\n(Its settings and build copy are deleted. Your original folder / zip and the generated .bin files are not touched.)`)) return;
+  await postJSON(`/api/projects/${S.slug}/remove`).catch(fail); S.slug=null; S.scan=null; await loadProjects();
+}
+
+/* ---------------- boot ---------------- */
+(async () => {
+  try{
+    const t = await api("/api/toolchains"); S.tc = t.toolchains;
+    $("#tcInfo").textContent = t.toolchains.length ? "Toolchains: " + t.toolchains.map(x=>x.id).join(" · ") : "⚠ No STM32CubeIDE toolchain found in C:\\ST";
+  }catch(e){ $("#tcInfo").textContent = "⚠ " + e.message; }
+  await loadProjects().catch(fail);
+})();
+</script>
+</body>
+</html>
